@@ -69,7 +69,8 @@ def quick_ack():
         ack_text = get_ack_response(
             quick_intent,
             state.shopkeeper_name,
-            state.shopkeeper_honorific
+            state.shopkeeper_honorific,
+            language=language
         )
 
         return jsonify({
@@ -151,7 +152,8 @@ def process():
         # 4. Generate response
         system_prompt = get_response_system_prompt(
             state.shopkeeper_name,
-            state.shopkeeper_honorific
+            state.shopkeeper_honorific,
+            language=language
         )
         user_prompt = build_response_user_prompt(text, agent_results, [alerts])
 
