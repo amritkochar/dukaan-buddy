@@ -56,9 +56,12 @@ def quick_ack():
     try:
         data = request.get_json()
         text = data.get('text', '')
+        language = data.get('language', 'hi-IN')  # Accept language parameter
 
         if not text:
             return jsonify({'error': 'No text provided'}), 400
+
+        logger.info(f"Quick-ack: '{text}' (lang: {language})")
 
         from core.quick_ack import detect_quick_intent, get_ack_response
 

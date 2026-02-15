@@ -6,6 +6,7 @@ let mediaStream = null;
 let recordedChunks = [];
 let currentLang = 'hi';
 let messageCount = 0;
+let detectedLanguage = 'hi-IN'; // Stores STT-detected language for dynamic TTS
 
 const micButton = document.getElementById('micButton');
 const micRing = document.getElementById('micRing');
@@ -157,9 +158,9 @@ async function startRecording() {
         micButton.textContent = '⏹';
         micButton.classList.add('recording');
         micRing.classList.add('recording');
-        micLabel.textContent = getTrans('recording');
         statusText.textContent = getTrans('recording');
         statusText.className = 'processing';
+        micLabel.style.display = 'none';
         showSoundWave('recording');
     } catch (err) {
         statusText.textContent = getTrans('error') + err.message;
@@ -178,7 +179,7 @@ function stopRecording() {
     micButton.textContent = '🎤';
     micButton.classList.remove('recording');
     micRing.classList.remove('recording');
-    micLabel.textContent = getTrans('micLabel');
+    micLabel.style.display = '';
     statusText.textContent = getTrans('processing');
     statusText.className = 'processing';
     hideSoundWave();
@@ -256,6 +257,9 @@ async function sendToSarvam(wavBlob) {
         console.log('Sarvam STT response:', data);
 
         const transcript = data.transcript || '';
+        detectedLanguage = data.language_code || 'hi-IN'; // Capture detected language, fallback to Hindi
+        console.log('Detected language:', detectedLanguage);
+
         if (!transcript) {
             statusText.textContent = getTrans('noInput');
             statusText.className = '';
@@ -270,13 +274,19 @@ async function sendToSarvam(wavBlob) {
         const ackPromise = fetch('/quick-ack', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: transcript })
+            body: JSON.stringify({
+                text: transcript,
+                language: detectedLanguage  // Use STT-detected language
+            })
         });
 
         const processPromise = fetch('/process', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: transcript, language: currentLang === 'hi' ? 'hi-IN' : 'en-US' })
+            body: JSON.stringify({
+                text: transcript,
+                language: detectedLanguage  // Use STT-detected language
+            })
         });
 
         const ackRes = await ackPromise;
@@ -320,7 +330,9 @@ async function sendToSarvam(wavBlob) {
     }
 }
 
-async function speakText(text) {
+async function speakText(text, languageCode = null) {
+    const targetLang = languageCode || detectedLanguage || 'hi-IN';
+
     const res = await fetch(SARVAM_TTS_URL, {
         method: 'POST',
         headers: {
@@ -331,7 +343,7 @@ async function speakText(text) {
             model: SARVAM_TTS_MODEL,
             speaker: SARVAM_TTS_SPEAKER,
             pace: SARVAM_TTS_PACE,
-            target_language_code: SARVAM_TTS_LANG,
+            target_language_code: targetLang,  // Dynamic language
             speech_sample_rate: 24000
         })
     });
