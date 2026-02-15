@@ -7,6 +7,8 @@ let recordedChunks = [];
 let currentLang = 'hi';
 let messageCount = 0;
 let detectedLanguage = 'hi-IN'; // Stores STT-detected language for dynamic TTS
+const ACK_COUNT = 15;
+let lastAckIndex = { hi: -1, en: -1 };
 
 const micButton = document.getElementById('micButton');
 const micRing = document.getElementById('micRing');
@@ -271,33 +273,18 @@ async function sendToSarvam(wavBlob) {
         statusText.textContent = getTrans('understanding');
         showSoundWave('processing');
 
-        const ackPromise = fetch('/quick-ack', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                text: transcript,
-                language: detectedLanguage  // Use STT-detected language
-            })
-        });
-
         const processPromise = fetch('/process', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: transcript,
-                language: detectedLanguage  // Use STT-detected language
+                language: detectedLanguage
             })
         });
 
-        const ackRes = await ackPromise;
-        if (ackRes.ok) {
-            const ackData = await ackRes.json();
-            if (ackData.ack_text) {
-                statusText.textContent = getTrans('speaking');
-                showSoundWave('speaking');
-                await speakText(ackData.ack_text);
-            }
-        }
+        statusText.textContent = getTrans('speaking');
+        showSoundWave('speaking');
+        await playPrerecordedAck(detectedLanguage);
 
         statusText.textContent = getTrans('generating');
         const processRes = await processPromise;
@@ -328,6 +315,27 @@ async function sendToSarvam(wavBlob) {
         hideSoundWave();
         console.error('Pipeline error:', err);
     }
+}
+
+async function playPrerecordedAck(language = 'hi-IN') {
+    const prefix = language.startsWith('en') ? 'en' : 'hi';
+    let idx = Math.floor(Math.random() * ACK_COUNT);
+    if (idx === lastAckIndex[prefix]) {
+        idx = (idx + 1) % ACK_COUNT;
+    }
+    lastAckIndex[prefix] = idx;
+
+    const url = `/static/acks/${prefix}_${idx}.wav`;
+    const audio = new Audio(url);
+
+    return new Promise((resolve) => {
+        audio.onended = resolve;
+        audio.onerror = () => {
+            console.warn('Pre-recorded ack failed, skipping:', url);
+            resolve();
+        };
+        audio.play().catch(() => resolve());
+    });
 }
 
 async function speakText(text, languageCode = null) {
