@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dukaan Buddy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,107 +16,385 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #fdfbf7;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(160deg, #fff7ed 0%, #fdfbf7 40%, #fff1e6 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            overflow: hidden;
         }
 
         .container {
             width: 100%;
-            max-width: 600px;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+            max-width: 480px;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 90vh;
+            align-items: center;
+            justify-content: center;
             position: relative;
+            padding: 40px 24px;
         }
 
-        .header {
-            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-            color: white;
-            padding: 15px 20px;
+        .lang-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 200;
             display: flex;
             align-items: center;
-            gap: 15px;
-            position: relative;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 3px;
+            border-radius: 24px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
 
-        .header-content {
-            flex: 1;
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #888;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.25s ease;
+        }
+
+        .toggle-btn.active {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+            color: white;
+            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+        }
+
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 48px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-wrapper {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 28px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(255, 152, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
         }
 
         .logo {
-            width: 50px;
-            height: 50px;
-            background: white;
-            border-radius: 50%;
-            padding: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            height: 100%;
             object-fit: contain;
+            border-radius: 16px;
         }
 
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 2px;
-            font-weight: 700;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        .hero h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1a1a1a;
+            letter-spacing: -0.5px;
         }
 
-        .header p {
-            font-size: 13px;
-            opacity: 0.9;
+        .hero p {
+            font-size: 14px;
+            color: #888;
             font-weight: 500;
+        }
+
+        .mic-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            animation: fadeInUp 0.6s ease-out 0.15s both;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mic-ring {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .mic-ring::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,152,0,0.08), rgba(255,152,0,0.02));
+            transition: all 0.3s ease;
+        }
+
+        .mic-ring:hover::before {
+            background: linear-gradient(135deg, rgba(255,152,0,0.15), rgba(255,152,0,0.05));
+        }
+
+        .mic-ring.recording::before {
+            animation: ringPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes ringPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.5; }
+        }
+
+        .mic-ring.recording::after {
+            content: '';
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            border: 2px solid rgba(245, 87, 108, 0.3);
+            animation: ringExpand 2s ease-in-out infinite;
+        }
+
+        @keyframes ringExpand {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 0; }
+        }
+
+        #micButton {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(145deg, #FF9800, #F57C00);
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 28px rgba(255, 152, 0, 0.35), 0 2px 8px rgba(255, 152, 0, 0.15);
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        #micButton:hover {
+            transform: scale(1.06);
+            box-shadow: 0 12px 36px rgba(255, 152, 0, 0.45), 0 4px 12px rgba(255, 152, 0, 0.2);
+        }
+
+        #micButton:active {
+            transform: scale(0.96);
+        }
+
+        #micButton.recording {
+            background: linear-gradient(145deg, #f5576c, #e8445a);
+            box-shadow: 0 8px 28px rgba(245, 87, 108, 0.4), 0 2px 8px rgba(245, 87, 108, 0.2);
+            animation: micPulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes micPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+
+        .mic-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #F57C00;
+            letter-spacing: 0.2px;
+        }
+
+        #status {
+            font-size: 13px;
+            color: #999;
+            min-height: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        #status.processing {
+            color: #E65100;
+            font-weight: 600;
+        }
+
+        .drawer-toggle {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 200;
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            transition: all 0.3s ease;
+        }
+
+        .drawer-toggle:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+        }
+
+        .drawer-toggle .badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f5576c;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .drawer-toggle .badge.visible {
+            display: flex;
+        }
+
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .drawer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-height: 75vh;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            z-index: 400;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .drawer.open {
+            transform: translateY(0);
+        }
+
+        .drawer-handle-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 20px 8px;
+            cursor: grab;
+            flex-shrink: 0;
+        }
+
+        .drawer-handle {
+            width: 36px;
+            height: 4px;
+            border-radius: 4px;
+            background: #ddd;
+        }
+
+        .drawer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 20px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            flex-shrink: 0;
+        }
+
+        .drawer-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .drawer-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.2s ease;
+        }
+
+        .drawer-close:hover {
+            background: #eee;
         }
 
         .conversation {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
-            background: #f5f5f5;
+            padding: 16px 20px;
+            background: #fafafa;
         }
 
-        /* Language specific empty states */
-        .grammar-hi .conversation:empty::before {
-            content: "आपकी बातचीत यहाँ दिखेगी...";
-            color: #999;
+        .conversation:empty::before {
+            content: attr(data-empty);
+            color: #bbb;
             display: block;
             text-align: center;
-            padding: 40px 20px;
-            font-style: italic;
-        }
-
-        .grammar-en .conversation:empty::before {
-            content: "Your conversation will appear here...";
-            color: #999;
-            display: block;
-            text-align: center;
-            padding: 40px 20px;
-            font-style: italic;
+            padding: 32px 16px;
+            font-size: 14px;
         }
 
         .message {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             display: flex;
-            animation: slideIn 0.3s ease-out;
+            animation: msgSlide 0.3s ease-out;
         }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes msgSlide {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .message.user {
@@ -125,14 +406,16 @@
         }
 
         .bubble {
-            max-width: 75%;
-            padding: 12px 16px;
-            border-radius: 18px;
+            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 16px;
             word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.5;
         }
 
         .message.user .bubble {
-            background: #FF9800;
+            background: linear-gradient(135deg, #FF9800, #F57C00);
             color: white;
             border-bottom-right-radius: 4px;
         }
@@ -141,151 +424,123 @@
             background: white;
             color: #333;
             border-bottom-left-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            border: 1px solid #f0f0f0;
         }
 
-        .controls {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            flex-direction: column;
+        .sound-wave {
+            display: none;
             align-items: center;
-            gap: 15px;
+            justify-content: center;
+            gap: 3px;
+            height: 24px;
+            margin-top: 4px;
         }
 
-        #micButton {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            border: none;
-            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
-            color: white;
-            font-size: 36px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
-        }
-
-        #micButton:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.6);
-        }
-
-        #micButton.recording {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                transform: scale(1);
-                box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
-            }
-
-            50% {
-                transform: scale(1.1);
-                box-shadow: 0 6px 25px rgba(245, 87, 108, 0.7);
-            }
-        }
-
-        #status {
-            font-size: 14px;
-            color: #666;
-            min-height: 20px;
-        }
-
-        #status.processing {
-            color: #E65100;
-            font-weight: 500;
-        }
-
-        /* Toggle Switch */
-        .lang-toggle {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 100;
+        .sound-wave.active {
             display: flex;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.25);
-            padding: 4px;
-            border-radius: 30px;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .sound-wave span {
+            width: 3px;
+            border-radius: 3px;
+            background: #F57C00;
+            animation: wave 1.2s ease-in-out infinite;
+        }
+
+        .sound-wave span:nth-child(1) { height: 8px; animation-delay: 0s; }
+        .sound-wave span:nth-child(2) { height: 16px; animation-delay: 0.1s; }
+        .sound-wave span:nth-child(3) { height: 12px; animation-delay: 0.2s; }
+        .sound-wave span:nth-child(4) { height: 20px; animation-delay: 0.3s; }
+        .sound-wave span:nth-child(5) { height: 12px; animation-delay: 0.4s; }
+        .sound-wave span:nth-child(6) { height: 16px; animation-delay: 0.5s; }
+        .sound-wave span:nth-child(7) { height: 8px; animation-delay: 0.6s; }
+
+        @keyframes wave {
+            0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+            50% { transform: scaleY(1); opacity: 1; }
+        }
+
+        .sound-wave.speaking span {
+            background: #4CAF50;
         }
 
         @media (max-width: 480px) {
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                padding-top: 85px;
-                /* Space for toggle */
+            .container {
+                padding: 32px 20px;
             }
-
-            .logo {
-                width: 40px;
-                height: 40px;
-                position: absolute;
-                top: 15px;
-                left: 20px;
+            .logo-wrapper {
+                width: 80px;
+                height: 80px;
+                border-radius: 22px;
             }
-
-            .header-content {
-                width: 100%;
-                margin-top: 5px;
+            .hero h1 {
+                font-size: 24px;
             }
-
-            /* Move toggle to top right visually aligned with logo */
+            #micButton {
+                width: 84px;
+                height: 84px;
+                font-size: 36px;
+            }
+            .mic-ring {
+                width: 120px;
+                height: 120px;
+            }
             .lang-toggle {
-                top: 15px;
+                top: 14px;
+                right: 14px;
+            }
+            .drawer-toggle {
+                bottom: 20px;
                 right: 20px;
             }
-        }
-
-        .toggle-btn {
-            background: none;
-            border: none;
-            color: #ffffff;
-            padding: 5px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .toggle-btn.active {
-            background: white;
-            color: #E65100;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 
 <body>
+    <div class="lang-toggle">
+        <button class="toggle-btn active" id="btn-hi" onclick="setLanguage('hi')">हिंदी</button>
+        <button class="toggle-btn" id="btn-en" onclick="setLanguage('en')">English</button>
+    </div>
+
     <div class="container">
-        <div class="lang-toggle">
-            <button class="toggle-btn active" id="btn-hi" onclick="setLanguage('hi')">हिंदी</button>
-            <button class="toggle-btn" id="btn-en" onclick="setLanguage('en')">English</button>
-        </div>
-        <div class="header">
-            <img src="dukaan_buddy_logo.png" alt="Dukaan Buddy Logo" class="logo">
-            <div class="header-content">
-                <h1 data-hi="दुकान Buddy" data-en="Dukaan Buddy">दुकान Buddy</h1>
-                <p data-hi="अपनी दुकान का हिसाब बोलकर रखें" data-en="Voice Store Assistant">अपनी दुकान का हिसाब बोलकर
-                    रखें</p>
+        <div class="hero">
+            <div class="logo-wrapper">
+                <img src="dukaan_buddy_logo.png" alt="Dukaan Buddy Logo" class="logo">
             </div>
+            <h1 data-hi="दुकान Buddy" data-en="Dukaan Buddy">दुकान Buddy</h1>
+            <p data-hi="अपनी दुकान का हिसाब बोलकर रखें" data-en="Voice Store Assistant">अपनी दुकान का हिसाब बोलकर रखें</p>
         </div>
 
-        <div id="conversation" class="conversation"></div>
-
-        <div class="controls">
-            <button id="micButton">🎤</button>
-            <div id="status" data-hi="माइक दबाएं और बोलें" data-en="Press mic and speak">माइक दबाएं और बोलें</div>
+        <div class="mic-area">
+            <div class="mic-ring" id="micRing">
+                <button id="micButton">🎤</button>
+            </div>
+            <div class="mic-label" id="micLabel" data-hi="छोटू से बात करें" data-en="Talk to Chhotu">छोटू से बात करें</div>
+            <div class="sound-wave" id="soundWave">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div id="status" data-hi="" data-en="">&nbsp;</div>
         </div>
+    </div>
+
+    <button class="drawer-toggle" id="drawerToggle" title="View conversation">
+        💬
+        <span class="badge" id="msgBadge">0</span>
+    </button>
+
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+
+    <div class="drawer" id="drawer">
+        <div class="drawer-handle-area" id="drawerHandleArea">
+            <div class="drawer-handle"></div>
+        </div>
+        <div class="drawer-header">
+            <h3 data-hi="बातचीत" data-en="Conversation">बातचीत</h3>
+            <button class="drawer-close" id="drawerClose">✕</button>
+        </div>
+        <div id="conversation" class="conversation" data-empty="आपकी बातचीत यहाँ दिखेगी..."></div>
     </div>
 
     <script src="config.js"></script>

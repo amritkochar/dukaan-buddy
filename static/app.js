@@ -5,12 +5,21 @@ let processorNode = null;
 let mediaStream = null;
 let recordedChunks = [];
 let currentLang = 'hi';
+let messageCount = 0;
 
 const micButton = document.getElementById('micButton');
+const micRing = document.getElementById('micRing');
+const micLabel = document.getElementById('micLabel');
 const statusText = document.getElementById('status');
 const conversationArea = document.getElementById('conversation');
+const soundWave = document.getElementById('soundWave');
+const drawer = document.getElementById('drawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
+const drawerToggle = document.getElementById('drawerToggle');
+const drawerClose = document.getElementById('drawerClose');
+const drawerHandleArea = document.getElementById('drawerHandleArea');
+const msgBadge = document.getElementById('msgBadge');
 
-// Translations configuration
 const TRANSLATIONS = {
     hi: {
         micStart: 'माइक शुरू हो रहा है...',
@@ -22,8 +31,10 @@ const TRANSLATIONS = {
         speaking: '🗣️ बोल रहा हूँ...',
         generating: '⏳ जवाब तैयार हो रहा है...',
         error: 'Error: ',
-        defaultStatus: 'माइक दबाएं और बोलें',
-        responseError: 'समझ नहीं आया'
+        defaultStatus: '',
+        responseError: 'समझ नहीं आया',
+        micLabel: 'छोटू से बात करें',
+        drawerEmpty: 'आपकी बातचीत यहाँ दिखेगी...'
     },
     en: {
         micStart: 'Starting microphone...',
@@ -35,44 +46,76 @@ const TRANSLATIONS = {
         speaking: '🗣️ Speaking...',
         generating: '⏳ Generating response...',
         error: 'Error: ',
-        defaultStatus: 'Press mic and speak',
-        responseError: 'Could not understand'
+        defaultStatus: '',
+        responseError: 'Could not understand',
+        micLabel: 'Talk to Chhotu',
+        drawerEmpty: 'Your conversation will appear here...'
     }
 };
 
-// Language switching function
 window.setLanguage = function (lang) {
     currentLang = lang;
 
-    // Update active button state
     document.querySelectorAll('.toggle-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     document.getElementById(`btn-${lang}`).classList.add('active');
 
-    // Update HTML lang attribute and body class for CSS
     document.documentElement.lang = lang;
-    document.body.className = `grammar-${lang}`; // For empty state CSS
+    document.body.className = `grammar-${lang}`;
 
-    // Update static text elements
     document.querySelectorAll(`[data-${lang}]`).forEach(el => {
         el.textContent = el.getAttribute(`data-${lang}`);
     });
 
-    // Update current status text if it matches one of our known states/defaults
-    // Or just reset to default state to be safe/clean
+    conversationArea.setAttribute('data-empty', TRANSLATIONS[lang].drawerEmpty);
+
     if (!isRecording) {
-        statusText.textContent = TRANSLATIONS[lang].defaultStatus;
+        statusText.innerHTML = '&nbsp;';
     }
 }
 
-// Initialize - set default to Hindi explicitly to trigger CSS classes
 window.addEventListener('DOMContentLoaded', () => {
     setLanguage('hi');
 });
 
 function getTrans(key) {
     return TRANSLATIONS[currentLang][key];
+}
+
+function openDrawer() {
+    drawer.classList.add('open');
+    drawerOverlay.classList.add('open');
+    msgBadge.classList.remove('visible');
+    messageCount = 0;
+}
+
+function closeDrawer() {
+    drawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+}
+
+drawerToggle.addEventListener('click', () => {
+    if (drawer.classList.contains('open')) {
+        closeDrawer();
+    } else {
+        openDrawer();
+    }
+});
+drawerOverlay.addEventListener('click', closeDrawer);
+drawerClose.addEventListener('click', closeDrawer);
+drawerHandleArea.addEventListener('click', closeDrawer);
+
+function showSoundWave(type) {
+    soundWave.classList.add('active');
+    soundWave.classList.remove('speaking');
+    if (type === 'speaking') {
+        soundWave.classList.add('speaking');
+    }
+}
+
+function hideSoundWave() {
+    soundWave.classList.remove('active', 'speaking');
 }
 
 micButton.addEventListener('click', async () => {
@@ -86,7 +129,7 @@ micButton.addEventListener('click', async () => {
 async function startRecording() {
     try {
         statusText.textContent = getTrans('micStart');
-        statusText.className = '';
+        statusText.className = 'processing';
 
         mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: { channelCount: 1, sampleRate: 16000 }
@@ -113,8 +156,11 @@ async function startRecording() {
         isRecording = true;
         micButton.textContent = '⏹';
         micButton.classList.add('recording');
+        micRing.classList.add('recording');
+        micLabel.textContent = getTrans('recording');
         statusText.textContent = getTrans('recording');
         statusText.className = 'processing';
+        showSoundWave('recording');
     } catch (err) {
         statusText.textContent = getTrans('error') + err.message;
         console.error(err);
@@ -131,15 +177,17 @@ function stopRecording() {
 
     micButton.textContent = '🎤';
     micButton.classList.remove('recording');
+    micRing.classList.remove('recording');
+    micLabel.textContent = getTrans('micLabel');
     statusText.textContent = getTrans('processing');
     statusText.className = 'processing';
+    hideSoundWave();
 
     const wavBlob = buildWav(recordedChunks, 16000);
     sendToSarvam(wavBlob);
 }
 
 function buildWav(chunks, sampleRate) {
-    // Merge all chunks
     let totalLength = 0;
     for (const c of chunks) totalLength += c.length;
     const merged = new Float32Array(totalLength);
@@ -149,14 +197,12 @@ function buildWav(chunks, sampleRate) {
         offset += c.length;
     }
 
-    // Float32 -> Int16
     const int16 = new Int16Array(merged.length);
     for (let i = 0; i < merged.length; i++) {
         const s = Math.max(-1, Math.min(1, merged[i]));
         int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
 
-    // WAV header + data
     const dataSize = int16.length * 2;
     const buffer = new ArrayBuffer(44 + dataSize);
     const v = new DataView(buffer);
@@ -216,11 +262,10 @@ async function sendToSarvam(wavBlob) {
             return;
         }
 
-        // Add user message to conversation
         addMessage('user', transcript);
 
-        // Fire both endpoints in parallel
         statusText.textContent = getTrans('understanding');
+        showSoundWave('processing');
 
         const ackPromise = fetch('/quick-ack', {
             method: 'POST',
@@ -234,17 +279,16 @@ async function sendToSarvam(wavBlob) {
             body: JSON.stringify({ text: transcript, language: currentLang === 'hi' ? 'hi-IN' : 'en-US' })
         });
 
-        // Wait for ack and play it immediately
         const ackRes = await ackPromise;
         if (ackRes.ok) {
             const ackData = await ackRes.json();
             if (ackData.ack_text) {
                 statusText.textContent = getTrans('speaking');
+                showSoundWave('speaking');
                 await speakText(ackData.ack_text);
             }
         }
 
-        // Wait for full response
         statusText.textContent = getTrans('generating');
         const processRes = await processPromise;
 
@@ -258,19 +302,20 @@ async function sendToSarvam(wavBlob) {
 
         const responseText = processData.response_text || getTrans('responseError');
 
-        // Add buddy response to conversation
         addMessage('buddy', responseText);
 
-        // Speak the response
         statusText.textContent = getTrans('speaking');
+        showSoundWave('speaking');
         await speakText(responseText);
 
-        statusText.textContent = getTrans('defaultStatus');
+        statusText.innerHTML = '&nbsp;';
         statusText.className = '';
+        hideSoundWave();
 
     } catch (err) {
         statusText.textContent = getTrans('error') + err.message;
         statusText.className = '';
+        hideSoundWave();
         console.error('Pipeline error:', err);
     }
 }
@@ -304,7 +349,6 @@ async function speakText(text) {
 
     const audio = new Audio(url);
 
-    // Return promise that resolves when audio finishes playing
     return new Promise((resolve, reject) => {
         audio.onended = resolve;
         audio.onerror = reject;
@@ -323,6 +367,11 @@ function addMessage(type, text) {
     messageDiv.appendChild(bubbleDiv);
     conversationArea.appendChild(messageDiv);
 
-    // Scroll to bottom
     conversationArea.scrollTop = conversationArea.scrollHeight;
+
+    if (!drawer.classList.contains('open')) {
+        messageCount++;
+        msgBadge.textContent = messageCount;
+        msgBadge.classList.add('visible');
+    }
 }
