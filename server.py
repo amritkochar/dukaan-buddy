@@ -16,14 +16,23 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 if not ANTHROPIC_API_KEY:
-    raise ValueError("Missing ANTHROPIC_API_KEY in .env file")
+    logger.warning("ANTHROPIC_API_KEY not set - API features will not work until it is configured")
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
+@app.after_request
+def add_cache_control(response):
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 # Global state (will be initialized after imports)
-state = None
+from core.state import StoreState
+state = StoreState()
+state.load_from_db()
 
 
 @app.route('/')
@@ -195,16 +204,9 @@ def get_state():
 
 
 if __name__ == '__main__':
-    # Import here to avoid circular imports
-    from core.state import StoreState
-
-    # Initialize store state
-    state = StoreState()
-    state.load_from_db()
-
-    logger.info("🏪 Starting Dukaan Buddy Server...")
+    logger.info("Starting Dukaan Buddy Server...")
     logger.info(f"Inventory: {len(state.inventory)} items")
     logger.info(f"Today's sales: {len(state.sales)}")
     logger.info(f"Today's expenses: {len(state.expenses)}")
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
