@@ -1,9 +1,9 @@
 """
-In-memory store state backed by SQLite (sync version).
+In-memory store state backed by PostgreSQL (sync version).
 """
 
 import os
-import sqlite3
+import psycopg2
 from datetime import datetime, date
 from loguru import logger
 from typing import Optional, Union
@@ -13,32 +13,70 @@ from core.normalizer import normalize_item, normalize_category
 
 class StoreState:
     """
-    In-memory store state with SQLite persistence.
+    In-memory store state with PostgreSQL persistence.
     Manages inventory, expenses, and sales for a single store.
     """
 
     def __init__(
         self,
-        db_path: str = "db/store.db",
         shopkeeper_name: str = "भैया",
         shopkeeper_honorific: str = "",
         low_stock_threshold: float = 5.0
     ):
-        # Ensure db directory exists
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
-        self.db_path = db_path
         self.shopkeeper_name = shopkeeper_name
         self.shopkeeper_honorific = shopkeeper_honorific
         self.low_stock_threshold = low_stock_threshold
 
-        self.inventory: dict[str, InventoryItem] = {}  # item_name → stock
-        self.expenses: list[ExpenseRecord] = []        # today's expenses
-        self.sales: list[SaleRecord] = []              # today's sales
+        self.inventory: dict[str, InventoryItem] = {}
+        self.expenses: list[ExpenseRecord] = []
+        self.sales: list[SaleRecord] = []
 
-        # Track what's been saved to avoid duplicate inserts
         self._saved_sales_count = 0
         self._saved_expenses_count = 0
+
+        self._init_tables()
+
+    def _get_conn(self):
+        return psycopg2.connect(os.getenv("DATABASE_URL"))
+
+    def _init_tables(self):
+        conn = self._get_conn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS inventory (
+                    item_name TEXT PRIMARY KEY,
+                    quantity DOUBLE PRECISION,
+                    unit TEXT,
+                    avg_cost DOUBLE PRECISION,
+                    updated_at TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id SERIAL PRIMARY KEY,
+                    category TEXT,
+                    amount DOUBLE PRECISION,
+                    description TEXT,
+                    created_at TEXT,
+                    day TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sales (
+                    id SERIAL PRIMARY KEY,
+                    item_name TEXT,
+                    quantity DOUBLE PRECISION,
+                    unit TEXT,
+                    price DOUBLE PRECISION,
+                    total DOUBLE PRECISION,
+                    created_at TEXT,
+                    day TEXT
+                )
+            """)
+            conn.commit()
+        finally:
+            conn.close()
 
     def _normalize_item_name(self, item_name: str) -> str:
         """
@@ -66,7 +104,6 @@ class StoreState:
         item_name = self._normalize_item_name(item_name)
 
         if item_name in self.inventory:
-            # Update existing item - weighted average cost
             existing = self.inventory[item_name]
             total_existing_value = existing.quantity * existing.avg_cost_per_unit
             total_new_value = quantity * cost_per_unit
@@ -79,13 +116,12 @@ class StoreState:
 
             existing.quantity = new_total_qty
             existing.avg_cost_per_unit = new_avg_cost
-            existing.unit = unit  # Update unit in case it changed
+            existing.unit = unit
             existing.last_updated = datetime.now()
 
             logger.info(f"Updated stock: {item_name} → {new_total_qty} {unit}")
             return existing
         else:
-            # Create new item
             new_item = InventoryItem(
                 item_name=item_name,
                 quantity=quantity,
@@ -142,7 +178,6 @@ class StoreState:
             logger.info(f"Removed stock: {item_name} → {quantity} (remaining: {item.quantity})")
             return item
         else:
-            # Item not in inventory - create with negative quantity
             logger.warning(f"Removing stock for unknown item: {item_name}")
             new_item = InventoryItem(
                 item_name=item_name,
@@ -161,7 +196,6 @@ class StoreState:
         description: str = ""
     ) -> ExpenseRecord:
         """Record an expense."""
-        # Normalize category to English
         normalized_category = normalize_category(category)
 
         record = ExpenseRecord(
@@ -200,7 +234,6 @@ class StoreState:
         )
         self.sales.append(record)
 
-        # Remove from inventory
         self.remove_stock(item_name, quantity)
 
         logger.info(f"Recorded sale: {item_name} → {quantity} {unit} @ ₹{price_per_unit} = ₹{total}")
@@ -233,7 +266,6 @@ class StoreState:
         """
         sales_revenue = self.get_daily_sales_total()
 
-        # Cost of goods sold (COGS)
         cogs = 0.0
         for sale in self.sales:
             item_name = self._normalize_item_name(sale.item_name)
@@ -288,137 +320,101 @@ class StoreState:
         )
 
     def save_to_db(self):
-        """Persist current state to SQLite."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        """Persist current state to PostgreSQL."""
+        conn = self._get_conn()
+        try:
+            cursor = conn.cursor()
 
-        # Create tables if not exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                item_name TEXT PRIMARY KEY,
-                quantity REAL,
-                unit TEXT,
-                avg_cost REAL,
-                updated_at TEXT
-            )
-        """)
+            for item_name, item in self.inventory.items():
+                cursor.execute("""
+                    INSERT INTO inventory (item_name, quantity, unit, avg_cost, updated_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (item_name) DO UPDATE SET
+                        quantity = EXCLUDED.quantity,
+                        unit = EXCLUDED.unit,
+                        avg_cost = EXCLUDED.avg_cost,
+                        updated_at = EXCLUDED.updated_at
+                """, (item_name, item.quantity, item.unit, item.avg_cost_per_unit, item.last_updated.isoformat()))
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                category TEXT,
-                amount REAL,
-                description TEXT,
-                created_at TEXT,
-                day TEXT
-            )
-        """)
+            today = self._get_today_str()
+            new_expenses = self.expenses[self._saved_expenses_count:]
+            for exp in new_expenses:
+                cursor.execute("""
+                    INSERT INTO expenses (category, amount, description, created_at, day)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (exp.category, exp.amount, exp.description, exp.timestamp.isoformat(), today))
+            self._saved_expenses_count = len(self.expenses)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS sales (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item_name TEXT,
-                quantity REAL,
-                unit TEXT,
-                price REAL,
-                total REAL,
-                created_at TEXT,
-                day TEXT
-            )
-        """)
+            new_sales = self.sales[self._saved_sales_count:]
+            for sale in new_sales:
+                cursor.execute("""
+                    INSERT INTO sales (item_name, quantity, unit, price, total, created_at, day)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (sale.item_name, sale.quantity, sale.unit, sale.price_per_unit, sale.total, sale.timestamp.isoformat(), today))
+            self._saved_sales_count = len(self.sales)
 
-        # Save inventory (upsert)
-        for item_name, item in self.inventory.items():
-            cursor.execute("""
-                INSERT OR REPLACE INTO inventory (item_name, quantity, unit, avg_cost, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (item_name, item.quantity, item.unit, item.avg_cost_per_unit, item.last_updated.isoformat()))
-
-        # Save only NEW expenses (avoid duplicates)
-        today = self._get_today_str()
-        new_expenses = self.expenses[self._saved_expenses_count:]
-        for exp in new_expenses:
-            cursor.execute("""
-                INSERT INTO expenses (category, amount, description, created_at, day)
-                VALUES (?, ?, ?, ?, ?)
-            """, (exp.category, exp.amount, exp.description, exp.timestamp.isoformat(), today))
-        self._saved_expenses_count = len(self.expenses)
-
-        # Save only NEW sales (avoid duplicates)
-        new_sales = self.sales[self._saved_sales_count:]
-        for sale in new_sales:
-            cursor.execute("""
-                INSERT INTO sales (item_name, quantity, unit, price, total, created_at, day)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (sale.item_name, sale.quantity, sale.unit, sale.price_per_unit, sale.total, sale.timestamp.isoformat(), today))
-        self._saved_sales_count = len(self.sales)
-
-        conn.commit()
-        conn.close()
-        logger.info("✅ State saved to database")
+            conn.commit()
+            logger.info("✅ State saved to database")
+        finally:
+            conn.close()
 
     def load_from_db(self):
-        """Restore state from SQLite on startup."""
-        if not os.path.exists(self.db_path):
-            logger.info("No existing database found - starting fresh")
-            return
-
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        # Load inventory
+        """Restore state from PostgreSQL on startup."""
+        conn = self._get_conn()
         try:
-            cursor.execute("SELECT item_name, quantity, unit, avg_cost, updated_at FROM inventory")
-            for row in cursor.fetchall():
-                item_name, quantity, unit, avg_cost, updated_at = row
-                self.inventory[item_name] = InventoryItem(
-                    item_name=item_name,
-                    quantity=quantity,
-                    unit=unit,
-                    avg_cost_per_unit=avg_cost,
-                    last_updated=datetime.fromisoformat(updated_at)
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute("SELECT item_name, quantity, unit, avg_cost, updated_at FROM inventory")
+                for row in cursor.fetchall():
+                    item_name, quantity, unit, avg_cost, updated_at = row
+                    self.inventory[item_name] = InventoryItem(
+                        item_name=item_name,
+                        quantity=quantity,
+                        unit=unit,
+                        avg_cost_per_unit=avg_cost,
+                        last_updated=datetime.fromisoformat(updated_at)
+                    )
+            except Exception:
+                pass
+
+            today = self._get_today_str()
+            try:
+                cursor.execute(
+                    "SELECT category, amount, description, created_at FROM expenses WHERE day = %s",
+                    (today,)
                 )
-        except sqlite3.OperationalError:
-            pass
+                for row in cursor.fetchall():
+                    category, amount, description, created_at = row
+                    self.expenses.append(ExpenseRecord(
+                        category=category,
+                        amount=amount,
+                        description=description,
+                        timestamp=datetime.fromisoformat(created_at)
+                    ))
+                self._saved_expenses_count = len(self.expenses)
+            except Exception:
+                pass
 
-        # Load today's expenses
-        today = self._get_today_str()
-        try:
-            cursor.execute(
-                "SELECT category, amount, description, created_at FROM expenses WHERE day = ?",
-                (today,)
-            )
-            for row in cursor.fetchall():
-                category, amount, description, created_at = row
-                self.expenses.append(ExpenseRecord(
-                    category=category,
-                    amount=amount,
-                    description=description,
-                    timestamp=datetime.fromisoformat(created_at)
-                ))
-            self._saved_expenses_count = len(self.expenses)
-        except sqlite3.OperationalError:
-            pass
+            try:
+                cursor.execute(
+                    "SELECT item_name, quantity, unit, price, total, created_at FROM sales WHERE day = %s",
+                    (today,)
+                )
+                for row in cursor.fetchall():
+                    item_name, quantity, unit, price, total, created_at = row
+                    self.sales.append(SaleRecord(
+                        item_name=item_name,
+                        quantity=quantity,
+                        unit=unit,
+                        price_per_unit=price,
+                        total=total,
+                        timestamp=datetime.fromisoformat(created_at)
+                    ))
+                self._saved_sales_count = len(self.sales)
+            except Exception:
+                pass
 
-        # Load today's sales
-        try:
-            cursor.execute(
-                "SELECT item_name, quantity, unit, price, total, created_at FROM sales WHERE day = ?",
-                (today,)
-            )
-            for row in cursor.fetchall():
-                item_name, quantity, unit, price, total, created_at = row
-                self.sales.append(SaleRecord(
-                    item_name=item_name,
-                    quantity=quantity,
-                    unit=unit,
-                    price_per_unit=price,
-                    total=total,
-                    timestamp=datetime.fromisoformat(created_at)
-                ))
-            self._saved_sales_count = len(self.sales)
-        except sqlite3.OperationalError:
-            pass
-
-        conn.close()
-        logger.info(f"✅ State loaded: {len(self.inventory)} items, {len(self.sales)} sales, {len(self.expenses)} expenses")
+            logger.info(f"✅ State loaded: {len(self.inventory)} items, {len(self.sales)} sales, {len(self.expenses)} expenses")
+        finally:
+            conn.close()

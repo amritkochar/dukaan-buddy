@@ -198,9 +198,6 @@ async function sendToSarvam(wavBlob) {
 
         const res = await fetch(SARVAM_STT_URL, {
             method: 'POST',
-            headers: {
-                'api-subscription-key': SARVAM_API_KEY
-            },
             body: formData
         });
 
@@ -282,7 +279,6 @@ async function speakText(text) {
     const res = await fetch(SARVAM_TTS_URL, {
         method: 'POST',
         headers: {
-            'api-subscription-key': SARVAM_API_KEY,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({

@@ -5,18 +5,21 @@ Integrates Sarvam STT/TTS (client-side) with full business logic backend
 """
 
 import os
-from flask import Flask, request, jsonify, send_from_directory
+import requests as http_requests
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 from loguru import logger
 from dotenv import load_dotenv
 
-# Load environment
 load_dotenv()
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
 
 if not ANTHROPIC_API_KEY:
     logger.warning("ANTHROPIC_API_KEY not set - API features will not work until it is configured")
+if not SARVAM_API_KEY:
+    logger.warning("SARVAM_API_KEY not set - Speech features will not work until it is configured")
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static')
@@ -201,6 +204,56 @@ def get_state():
             'timestamp': e.timestamp.isoformat()
         } for e in state.expenses]
     })
+
+
+@app.route('/api/stt', methods=['POST'])
+def stt_proxy():
+    if not SARVAM_API_KEY:
+        return jsonify({'error': 'SARVAM_API_KEY not configured'}), 500
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'error': 'No audio file provided'}), 400
+
+        files = {'file': (file.filename, file.stream, file.content_type)}
+        data = {
+            'model': request.form.get('model', 'saaras:v3'),
+            'mode': request.form.get('mode', 'transcribe'),
+            'language_code': request.form.get('language_code', 'unknown'),
+        }
+
+        resp = http_requests.post(
+            'https://api.sarvam.ai/speech-to-text',
+            headers={'api-subscription-key': SARVAM_API_KEY},
+            files=files,
+            data=data,
+            timeout=30
+        )
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get('Content-Type', 'application/json'))
+    except Exception as e:
+        logger.error(f"STT proxy error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tts', methods=['POST'])
+def tts_proxy():
+    if not SARVAM_API_KEY:
+        return jsonify({'error': 'SARVAM_API_KEY not configured'}), 500
+    try:
+        payload = request.get_json()
+        resp = http_requests.post(
+            'https://api.sarvam.ai/text-to-speech',
+            headers={
+                'api-subscription-key': SARVAM_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            json=payload,
+            timeout=30
+        )
+        return Response(resp.content, status=resp.status_code, content_type=resp.headers.get('Content-Type', 'application/json'))
+    except Exception as e:
+        logger.error(f"TTS proxy error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
