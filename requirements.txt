@@ -1,0 +1,6 @@
+flask
+flask-cors
+requests
+python-dotenv
+loguru
+pydantic>=2.0
