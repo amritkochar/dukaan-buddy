@@ -4,3 +4,9 @@ requests
 python-dotenv
 loguru
 pydantic>=2.0
+flask
+flask-cors
+loguru
+pydantic
+python-dotenv
+requests
