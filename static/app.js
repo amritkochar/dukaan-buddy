@@ -412,7 +412,7 @@ demoReset.addEventListener('click', async () => {
     } catch (e) {
         showToast('Error: ' + e.message);
     }
-    demoReset.textContent = 'Clear All';
+    demoReset.textContent = demoReset.getAttribute(`data-${currentLang}`) || 'Clear All';
     demoReset.disabled = false;
 });
 
@@ -430,7 +430,7 @@ demoSeed.addEventListener('click', async () => {
     } catch (e) {
         showToast('Error: ' + e.message);
     }
-    demoSeed.textContent = 'Load Kirana Store';
+    demoSeed.textContent = demoSeed.getAttribute(`data-${currentLang}`) || 'Load Kirana Store';
     demoSeed.disabled = false;
 });
 
@@ -476,6 +476,6 @@ demoCloseShop.addEventListener('click', async () => {
         statusText.className = '';
     }
 
-    demoCloseShop.textContent = 'Close Shop';
+    demoCloseShop.textContent = demoCloseShop.getAttribute(`data-${currentLang}`) || 'Close Shop';
     demoCloseShop.disabled = false;
 });
