@@ -391,6 +391,7 @@ function addMessage(type, text) {
 const demoToast = document.getElementById('demoToast');
 const demoReset = document.getElementById('demoReset');
 const demoSeed = document.getElementById('demoSeed');
+const demoCloseShop = document.getElementById('demoCloseShop');
 
 function showToast(msg) {
     demoToast.textContent = msg;
@@ -431,4 +432,50 @@ demoSeed.addEventListener('click', async () => {
     }
     demoSeed.textContent = 'Load Kirana Store';
     demoSeed.disabled = false;
+});
+
+demoCloseShop.addEventListener('click', async () => {
+    if (isRecording) return;
+    demoCloseShop.disabled = true;
+    demoCloseShop.textContent = '...';
+
+    const closeLang = detectedLanguage || 'hi-IN';
+    const closeText = closeLang.startsWith('en')
+        ? 'Close the shop for today, give me the full day summary'
+        : 'दुकान बंद करो, आज का पूरा हिसाब बताओ';
+
+    try {
+        addMessage('user', closeText);
+        statusText.textContent = getTrans('generating');
+        statusText.className = 'processing';
+        showSoundWave('processing');
+
+        const res = await fetch('/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: closeText, language: closeLang })
+        });
+
+        if (!res.ok) throw new Error('Failed to get summary');
+
+        const data = await res.json();
+        const responseText = data.response_text || getTrans('responseError');
+
+        addMessage('buddy', responseText);
+        statusText.textContent = getTrans('speaking');
+        showSoundWave('speaking');
+        await speakText(responseText);
+
+        statusText.innerHTML = '&nbsp;';
+        statusText.className = '';
+        hideSoundWave();
+    } catch (e) {
+        showToast('Error: ' + e.message);
+        hideSoundWave();
+        statusText.innerHTML = '&nbsp;';
+        statusText.className = '';
+    }
+
+    demoCloseShop.textContent = 'Close Shop';
+    demoCloseShop.disabled = false;
 });

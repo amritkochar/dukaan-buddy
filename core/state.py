@@ -259,23 +259,30 @@ class StoreState:
         """Get total expenses for today."""
         return sum(expense.amount for expense in self.expenses)
 
-    def get_daily_profit(self) -> float:
-        """
-        Calculate daily profit.
-        Profit = Sales Revenue - Cost of Goods Sold - Expenses
-        """
-        sales_revenue = self.get_daily_sales_total()
-
+    def get_daily_cogs(self) -> float:
+        """Get cost of goods sold today (only items actually sold)."""
         cogs = 0.0
         for sale in self.sales:
             item_name = self._normalize_item_name(sale.item_name)
             if item_name in self.inventory:
                 avg_cost = self.inventory[item_name].avg_cost_per_unit
                 cogs += sale.quantity * avg_cost
+        return cogs
 
+    def get_daily_profit(self) -> float:
+        """
+        Calculate daily profit.
+        Profit = Sales Revenue - Cost of Goods Sold (only sold items) - Operational Expenses
+        Note: Inventory purchased but not sold is NOT a loss — it's still in stock.
+        """
+        sales_revenue = self.get_daily_sales_total()
+        cogs = self.get_daily_cogs()
         expenses = self.get_daily_expense_total()
-
         return sales_revenue - cogs - expenses
+
+    def get_total_inventory_value(self) -> float:
+        """Get total value of current inventory."""
+        return sum(item.quantity * item.avg_cost_per_unit for item in self.inventory.values() if item.quantity > 0)
 
     def get_low_stock_items(self, threshold: float = None) -> list[str]:
         """Get list of items below stock threshold."""
@@ -316,7 +323,9 @@ class StoreState:
             profit=self.get_daily_profit(),
             items_sold=items_sold,
             expenses_list=expenses_list,
-            low_stock_items=self.get_low_stock_items()
+            low_stock_items=self.get_low_stock_items(),
+            cogs=self.get_daily_cogs(),
+            inventory_value=self.get_total_inventory_value()
         )
 
     def save_to_db(self):

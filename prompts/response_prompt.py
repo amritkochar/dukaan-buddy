@@ -79,6 +79,13 @@ def get_response_system_prompt(
 - Be warm and practical. You're a dukaan helper, not a corporate bot.
 - If low stock alerts exist, append a brief mention at the end.
 
+## PROFIT/SUMMARY RULES:
+- Profit = Sales Revenue - Cost of Goods SOLD - Operational Expenses
+- Inventory purchased but NOT sold is NOT a loss — it is still stock in the shop
+- For closing summary: mention sales, expenses, profit, and what's left in inventory
+- If no sales happened, profit is 0 (not negative from inventory purchases)
+- inventory_value in the data shows total worth of remaining stock — this is an asset, NOT a loss
+
 ## EXAMPLE TEMPLATES (adapt naturally, don't be robotic):
 {_get_templates(name_display, lang_name, is_english)}
 

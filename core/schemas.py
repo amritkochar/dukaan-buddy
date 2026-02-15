@@ -68,3 +68,5 @@ class DailySummary(BaseModel):
     items_sold: list[dict]
     expenses_list: list[dict]
     low_stock_items: list[str]
+    cogs: float = 0.0
+    inventory_value: float = 0.0
