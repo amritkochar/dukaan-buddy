@@ -465,6 +465,76 @@
             background: #4CAF50;
         }
 
+        .demo-controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 200;
+            display: flex;
+            gap: 8px;
+        }
+
+        .demo-btn {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .demo-btn:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            color: #333;
+        }
+
+        .demo-btn.reset:hover {
+            color: #e53935;
+            border-color: rgba(229, 57, 53, 0.2);
+        }
+
+        .demo-btn.seed:hover {
+            color: #2e7d32;
+            border-color: rgba(46, 125, 50, 0.2);
+        }
+
+        .demo-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .demo-toast {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .demo-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
         @media (max-width: 480px) {
             .container {
                 padding: 32px 20px;
@@ -499,6 +569,13 @@
 </head>
 
 <body>
+    <div class="demo-controls">
+        <button class="demo-btn reset" id="demoReset">Clear All</button>
+        <button class="demo-btn seed" id="demoSeed">Load Kirana Store</button>
+    </div>
+
+    <div class="demo-toast" id="demoToast"></div>
+
     <div class="lang-toggle">
         <button class="toggle-btn active" id="btn-hi" onclick="setLanguage('hi')">हिंदी</button>
         <button class="toggle-btn" id="btn-en" onclick="setLanguage('en')">English</button>

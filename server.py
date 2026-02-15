@@ -184,6 +184,63 @@ def process():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/demo/reset', methods=['POST'])
+def demo_reset():
+    """Clear all data from inventory, sales, and expenses."""
+    try:
+        conn = state._get_conn()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM inventory")
+            cursor.execute("DELETE FROM sales")
+            cursor.execute("DELETE FROM expenses")
+            conn.commit()
+        finally:
+            conn.close()
+
+        state.inventory.clear()
+        state.sales.clear()
+        state.expenses.clear()
+        state._saved_sales_count = 0
+        state._saved_expenses_count = 0
+
+        logger.info("🗑️ Demo reset: all data cleared")
+        return jsonify({'status': 'ok', 'message': 'All data cleared'})
+    except Exception as e:
+        logger.error(f"Error in demo reset: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/demo/seed', methods=['POST'])
+def demo_seed():
+    """Seed database with realistic kirana store inventory."""
+    try:
+        seed_items = [
+            {"name": "gehun_atta", "display": "Gehun Atta (Wheat Flour)", "qty": 200, "unit": "kg", "cost": 32},
+            {"name": "chawal", "display": "Chawal (Rice)", "qty": 150, "unit": "kg", "cost": 45},
+            {"name": "chini", "display": "Chini (Sugar)", "qty": 100, "unit": "kg", "cost": 42},
+            {"name": "sarson_tel", "display": "Sarson Tel (Mustard Oil)", "qty": 50, "unit": "litre", "cost": 165},
+            {"name": "toor_dal", "display": "Toor Dal", "qty": 80, "unit": "kg", "cost": 135},
+            {"name": "chai_patti", "display": "Chai Patti (Tea Leaves)", "qty": 20, "unit": "kg", "cost": 280},
+            {"name": "maggi", "display": "Maggi Noodles", "qty": 120, "unit": "packet", "cost": 12},
+        ]
+
+        for item in seed_items:
+            state.add_stock(item["name"], item["qty"], item["unit"], item["cost"])
+
+        state.save_to_db()
+
+        logger.info(f"🏪 Demo seed: added {len(seed_items)} kirana items")
+        return jsonify({
+            'status': 'ok',
+            'message': f'{len(seed_items)} items added',
+            'items': [f"{i['display']}: {i['qty']} {i['unit']} @ ₹{i['cost']}" for i in seed_items]
+        })
+    except Exception as e:
+        logger.error(f"Error in demo seed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/state', methods=['GET'])
 def get_state():
     """Get current store state (for debugging)"""

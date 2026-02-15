@@ -387,3 +387,48 @@ function addMessage(type, text) {
         msgBadge.classList.add('visible');
     }
 }
+
+const demoToast = document.getElementById('demoToast');
+const demoReset = document.getElementById('demoReset');
+const demoSeed = document.getElementById('demoSeed');
+
+function showToast(msg) {
+    demoToast.textContent = msg;
+    demoToast.classList.add('show');
+    setTimeout(() => demoToast.classList.remove('show'), 2500);
+}
+
+demoReset.addEventListener('click', async () => {
+    demoReset.disabled = true;
+    demoReset.textContent = '...';
+    try {
+        const res = await fetch('/demo/reset', { method: 'POST' });
+        if (res.ok) {
+            showToast('All data cleared');
+        } else {
+            showToast('Failed to clear data');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message);
+    }
+    demoReset.textContent = 'Clear All';
+    demoReset.disabled = false;
+});
+
+demoSeed.addEventListener('click', async () => {
+    demoSeed.disabled = true;
+    demoSeed.textContent = '...';
+    try {
+        const res = await fetch('/demo/seed', { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            showToast(data.message + ' to inventory');
+        } else {
+            showToast('Failed to load items');
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message);
+    }
+    demoSeed.textContent = 'Load Kirana Store';
+    demoSeed.disabled = false;
+});
